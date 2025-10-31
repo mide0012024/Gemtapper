@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>GemTapper</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <style>
+    *{margin:0;padding:0}body,html{height:100%;background:#0a0a1a;color:#fff;font-family:sans-serif;overflow:hidden}
+    #tap{width:160px;height:160px;background:#ff3b5c;border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:60px;animation:pulse 1.5s infinite;box-shadow:0 0 30px #ff3b5c}
+    @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}}
+    #score{position:absolute;top:20px;left:20px;font-size:22px}
+    #lb{position:absolute;bottom:0;left:0;right:0;padding:15px;background:rgba(0,0,0,0.6);font-size:14px;max-height:40%;overflow-y:auto}
+    #claim{margin:10px auto;display:block;padding:12px 24px;background:#2ed573;color:#000;border:none;border-radius:8px;font-weight:bold}
+  </style>
+</head>
+<body>
+  <div id="score">Gems: 0</div>
+  <div id="tap">Tap</div>
+  <div id="lb">Loading...</div>
+  <button id="claim" style="display:none">Claim TON</button>
+
+<script>
+  // === CONFIG ===
+  const FIREBASE_DB_URL = "https://gemtapper-abc123-default-rtdb.firebaseio.com/"; // ← CHANGE THIS
+  const tg = window.Telegram.WebApp;
+  tg.ready(); tg.expand();
+
+  // === Firebase ===
+  firebase.initializeApp({databaseURL: FIREBASE_DB_URL});
+  const db = firebase.database();
+
+  // === Game ===
+  let gems = 0;
+  const userId = tg.initDataUnsafe.user?.id || Date.now();
+  const username = tg.initDataUnsafe.user?.username || 'Player';
+  const scoreEl = document.getElementById('score');
+  const tapBtn = document.getElementById('tap');
+  const lbEl = document.getElementById('lb');
+  const claimBtn = document.getElementById('claim');
+
+  // Tap
+  tapBtn.onclick = () => {
+    gems += Math.floor(Math.random()*4) + 1;
+    scoreEl.textContent = `Gems: ${gems.toLocaleString()}`;
+    saveScore();
+  };
+
+  // Save
+  function saveScore() {
+    db.ref('scores/' + userId).set({gems, name: username});
+  }
+
+  // Leaderboard
+  db.ref('scores').orderByChild('gems').limitToLast(10).on('value', s => {
+    const data = s.val() || {};
+    const sorted = Object.entries(data).sort((a,b)=>b[1].gems - a[1].gems);
+    lbEl.innerHTML = '<b>Top 10</b><br>' + sorted.map(([id,v])=>`#${v.name}: ${v.gems}`).join('<br>');
+  });
+
+  // Claim
+  setInterval(() => claimBtn.style.display = gems >= 1000 ? 'block' : 'none', 1000);
+  claimBtn.onclick = () => {
+    alert('Claiming 0.001 TON... (Check wallet in 5 min)');
+    // Real claim via backend (next step)
+  };
+
+  // Auto-save
+  setInterval(saveScore, 8000);
+</script>
+</body>
+</html>
